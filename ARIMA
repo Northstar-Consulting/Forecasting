@@ -1,0 +1,81 @@
+ibrary(tseries)
+
+# Load your cryptocurrency dataset (replace 'your_data.csv' with your actual data file)
+data <- read.csv("your_data.csv")
+
+# Ensure that the date column is in the correct format
+data$Date <- as.Date(data$Date)
+
+# Check for missing values
+sum(is.na(data))
+
+# If there are missing values, you may choose to remove them or impute them
+
+# Check data types
+str(data)
+
+# Convert numeric columns to numeric (if needed)
+numeric_cols <- c("Open", "High", "Low", "Close", "Adj Close", "Volume")
+data[numeric_cols] <- lapply(data[numeric_cols], as.numeric)
+
+# Check for stationarity using Augmented Dickey-Fuller test
+adf_test_close <- adf.test(data$Close)
+print(adf_test_close)
+
+# If the data is not stationary, perform differencing to make it stationary
+if (adf_test_close$p.value > 0.05) {
+  diff_data_close <- diff(data$Close)
+  adf_test_diff_close <- adf.test(diff_data_close)
+  print(adf_test_diff_close)
+  
+  # Update the data with differenced series
+  data$Close <- c(NA, diff_data_close)
+}
+
+# Fit ARIMA model
+arima_model_close <- auto.arima(data$Close)
+
+# Print the model summary
+summary(arima_model_close)
+
+# Create a time series object
+ts_data <- ts(data$Close, start = start(data$Date), frequency = 1)
+
+# Fit ARIMA model without Easter
+arima_model_no_easter <- auto.arima(ts_data)
+
+# Print the model summary
+summary(arima_model_no_easter)
+
+# Forecast future prices without Easter
+num_periods <- 6  # Forecast for the first 6 months of 2024
+forecast_values_no_easter <- forecast(arima_model_no_easter, h = num_periods)
+
+# Print the forecast values
+print(forecast_values_no_easter)
+
+# Assuming 'forecast_values_no_easter' contains your forecast results
+library(forecast)
+
+# Plot the forecast
+plot(forecast_values_no_easter, main = "ARIMA Forecast without Easter",
+     xlab = "Time", ylab = "Close Price", ylim = c(-0.1, 0.1))
+
+# Add the observed data to the plot
+lines(ts_data, col = "blue", lwd = 2)
+
+# Add legend
+legend("topright", legend = c("Forecast", "Observed"),
+       col = c("black", "blue"), lty = c(1, 1), lwd = c(1, 2))
+
+# Add shaded areas for prediction intervals
+shade_color <- rgb(0.8, 0.8, 0.8, alpha = 0.5)
+polygon(c(time(forecast_values_no_easter), rev(time(forecast_values_no_easter))),
+        c(forecast_values_no_easter$Lo.80, rev(forecast_values_no_easter$Hi.80)),
+        col = shade_color, border = NA)
+polygon(c(time(forecast_values_no_easter), rev(time(forecast_values_no_easter))),
+        c(forecast_values_no_easter$Lo.95, rev(forecast_values_no_easter$Hi.95)),
+        col = shade_color, border = NA)
+
+# Show the plot
+
